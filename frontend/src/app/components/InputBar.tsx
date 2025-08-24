@@ -54,17 +54,16 @@ function InputBar({ onSendMessage, isConnected = true }: InputBarProps) {
 
   return (
     <div 
-      className={`bg-transparent relative cursor-text max-w-3xl w-full p-[1px] rounded-4xl overflow-hidden flex flex-col items-center justify-between ${
+      className={`border-2 border-white bg-transparent relative cursor-text max-w-3xl w-full p-[1px] rounded-0 overflow-hidden flex flex-col items-center justify-between ${
         !isConnected ? 'opacity-50' : ''
       }`}
       onClick={handleClick}
     >
-        <div className="absolute inset-[-1000%] animate-[spin_2s_linear_infinite] bg-[conic-gradient(from_90deg_at_50%_50%,#E2CBFF_0%,#393BB2_50%,#E2CBFF_100%)]" />
-        <div className="p-0 relative w-full h-full bg-slate-950 rounded-4xl flex items-center justify-center">
-            <div className="gap-1 p-2 h-full w-full bg-transparent rounded-3xl flex flex-col items-center justify-between">
+        <div className="p-0 relative w-full h-full bg-slate-950 rounded-0 flex items-center justify-center">
+            <div className="gap-1 p-2 h-full w-full bg-transparent rounded-0 flex flex-col items-center justify-between">
                 <textarea
                     ref={inputbarRef}
-                    className="rounded-4xl flex-grow overflow-y-auto max-h-40 w-full p-2 bg-transparent text-white border-none focus:outline-none resize-none"
+                    className="rounded-0 flex-grow overflow-y-auto max-h-40 w-full p-2 bg-transparent text-white border-none focus:outline-none resize-none"
                     placeholder={isConnected ? "Type your message here..." : "Backend disconnected - check connection"}
                     onKeyDown={handleKeyDown}
                     disabled={!isConnected}

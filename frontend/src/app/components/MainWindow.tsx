@@ -18,7 +18,7 @@ function MainWindow() {
   }, [messages, isChatVisible]);
 
   return (
-    <div className="rounded-2xl h-full w-full flex flex-col items-center relative bg-gray-950">
+    <div className="rounded-0 h-full w-full flex flex-col items-center relative bg-gray-950 border-2 border-l-0 border-white">
       <TopBar />
       
       {/* Connection Status Indicator */}
@@ -40,10 +40,10 @@ function MainWindow() {
         </div>
       )}
       
-      {isChatVisible && <div className='flex-1 w-full flex items-start pt-4 justify-center overflow-y-auto pb-50'>
+      {isChatVisible && <div className='flex-1 w-full flex items-start pt-4 justify-center overflow-y-auto pb-50 scrollbar-gutter-stable ml-4'>
         <Chat messages={messageBlocks} />
       </div>}
-      <div className={`z-10 bg-transparent  flex items-center justify-center w-full translation-transformation duration-200 ease-in-out absolute left-0 right-0 ${
+      <div className={`z-10 bg-transparent flex items-center justify-center w-full translation-transformation duration-200 ease-in-out absolute inset-x-0 ${
         messages.length > 0 
           ? 'bottom-0 mb-5' 
           : 'top-1/2 transform -translate-y-1/2'

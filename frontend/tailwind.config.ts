@@ -8,6 +8,10 @@ module.exports = {
   darkMode: "class",
   theme: {
     extend: {
+      fontFamily: {
+        mono: ['var(--font-fira-code)', 'FiraCode Nerd Font', 'Fira Code', 'monospace'],
+        sans: ['var(--font-fira-code)', 'FiraCode Nerd Font', 'Fira Code', 'monospace'],
+      },
       animation: {
         shimmer: "shimmer 2s linear infinite",
       },
