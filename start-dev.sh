@@ -6,6 +6,26 @@ GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 NC='\033[0m' # No Color
 
+# Parse command line arguments
+FORCE_INSTALL=false
+if [ "$1" = "--help" ] || [ "$1" = "-h" ]; then
+    echo -e "${GREEN}AI Research Assistant Development Environment${NC}"
+    echo -e "${YELLOW}Usage: $0 [OPTIONS]${NC}"
+    echo ""
+    echo -e "${YELLOW}Options:${NC}"
+    echo -e "  -f, --force-install    Force reinstall all npm dependencies"
+    echo -e "  -h, --help            Show this help message"
+    echo ""
+    echo -e "${YELLOW}Default behavior:${NC}"
+    echo -e "  - Only installs npm dependencies if node_modules doesn't exist"
+    echo -e "  - Updates dependencies if package.json or package-lock.json are newer"
+    echo -e "  - Skips installation if dependencies are up to date"
+    exit 0
+elif [ "$1" = "--force-install" ] || [ "$1" = "-f" ]; then
+    FORCE_INSTALL=true
+    echo -e "${YELLOW}Force install mode enabled - will reinstall all dependencies${NC}"
+fi
+
 echo -e "${GREEN}Starting AI Research Assistant Development Environment${NC}"
 echo -e "${YELLOW}=========================================${NC}"
 
@@ -43,8 +63,13 @@ echo -e "${YELLOW}Activating Python environment...${NC}"
 source .venv/bin/activate
 
 # Sync dependencies from root
-echo -e "${YELLOW}Syncing backend dependencies using uv...${NC}"
-uv sync
+if [ "$FORCE_INSTALL" = true ]; then
+    echo -e "${YELLOW}Force syncing backend dependencies using uv...${NC}"
+    uv sync --reinstall
+else
+    echo -e "${YELLOW}Syncing backend dependencies using uv (only if needed)...${NC}"
+    uv sync
+fi
 
 # Start backend
 echo -e "${GREEN}Starting Backend (FastAPI)...${NC}"
@@ -59,8 +84,20 @@ sleep 3
 # Start frontend
 cd ../frontend
 echo -e "${GREEN}Starting Frontend (Next.js)...${NC}"
-echo -e "${YELLOW}Installing frontend dependencies...${NC}"
-npm install
+
+# Smart dependency installation - only install if needed
+if [ "$FORCE_INSTALL" = true ]; then
+    echo -e "${YELLOW}Force installing frontend dependencies...${NC}"
+    npm install
+elif [ ! -d "node_modules" ]; then
+    echo -e "${YELLOW}node_modules not found. Installing frontend dependencies...${NC}"
+    npm install
+elif [ "package.json" -nt "node_modules" ] || [ "package-lock.json" -nt "node_modules" ]; then
+    echo -e "${YELLOW}package.json or package-lock.json newer than node_modules. Updating dependencies...${NC}"
+    npm install
+else
+    echo -e "${GREEN}Dependencies already up to date. Skipping npm install.${NC}"
+fi
 
 echo -e "${GREEN}Launching Next.js server on http://localhost:3000${NC}"
 npm run dev &
