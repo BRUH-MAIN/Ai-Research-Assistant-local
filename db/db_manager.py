@@ -1,381 +1,272 @@
 import psycopg2
 from psycopg2.extras import RealDictCursor
-import bcrypt
-import uuid
-from datetime import datetime
-from typing import Optional, Dict, List, Any
+from psycopg2 import sql
 import json
+from datetime import datetime
+from typing import List, Dict, Optional, Union
+import uuid
+from contextlib import contextmanager
+import os
+from dotenv import load_dotenv
 
-class DatabaseHandler:
-    def __init__(self, host: str, database: str, user: str, password: str, port: int = 5432):
-        """Initialize database connection parameters"""
-        self.connection_params = {
-            'host': host,
-            'database': database,
-            'user': user,
-            'password': password,
-            'port': port
-        }
-        self.connection = None
+# Load environment variables
+load_dotenv()
+
+class ChatDatabase:
+    def __init__(self, database_url: Optional[str] = None):
+        """Initialize database connection using URL from environment or parameter"""
+        self.database_url = database_url or os.getenv('DATABASE_URL')
+        
+        if not self.database_url:
+            raise ValueError("DATABASE_URL not found in environment variables or parameters")
     
-    def connect(self):
-        """Establish database connection"""
+    @contextmanager
+    def get_connection(self):
+        """Context manager for database connections"""
+        conn = None
         try:
-            self.connection = psycopg2.connect(**self.connection_params)
-            self.connection.autocommit = True
-            print("✅ Database connected successfully")
-            return True
-        except psycopg2.Error as e:
-            print(f"❌ Database connection failed: {e}")
-            return False
+            conn = psycopg2.connect(self.database_url)
+            yield conn
+        except Exception as e:
+            if conn:
+                conn.rollback()
+            raise e
+        finally:
+            if conn:
+                conn.close()
     
-    def disconnect(self):
-        """Close database connection"""
-        if self.connection:
-            self.connection.close()
-            print("📝 Database connection closed")
+    # SESSION MANAGEMENT
+    def create_session(self) -> str:
+        """Create a new chat session and return session_id"""
+        with self.get_connection() as conn:
+            with conn.cursor() as cursor:
+                cursor.execute(
+                    "INSERT INTO sessions (session_id) VALUES (DEFAULT) RETURNING session_id"
+                )
+                session_id = cursor.fetchone()[0]
+                conn.commit()
+                return str(session_id)
     
-    def get_cursor(self):
-        """Get database cursor with dictionary support"""
-        if not self.connection:
-            if not self.connect():
-                return None
-        return self.connection.cursor(cursor_factory=RealDictCursor)
+    def end_session(self, session_id: str) -> bool:
+        """End a session by setting ended_at and is_active=False"""
+        with self.get_connection() as conn:
+            with conn.cursor() as cursor:
+                cursor.execute(
+                    """UPDATE sessions 
+                       SET ended_at = NOW(), is_active = FALSE 
+                       WHERE session_id = %s AND is_active = TRUE""",
+                    (session_id,)
+                )
+                rows_affected = cursor.rowcount
+                conn.commit()
+                return rows_affected > 0
     
-    # =========================
-    # USER MANAGEMENT
-    # =========================
+    def get_session(self, session_id: str) -> Optional[Dict]:
+        """Get session details"""
+        with self.get_connection() as conn:
+            with conn.cursor(cursor_factory=RealDictCursor) as cursor:
+                cursor.execute(
+                    "SELECT * FROM sessions WHERE session_id = %s",
+                    (session_id,)
+                )
+                result = cursor.fetchone()
+                return dict(result) if result else None
     
-    def create_user(self, email: str, password: str, first_name: str = None, 
-                   last_name: str = None, role: str = 'scholar') -> Optional[str]:
-        """Create a new user and return user_id"""
-        try:
-            # Hash password
-            password_hash = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
-            user_id = str(uuid.uuid4())
-            
-            cursor = self.get_cursor()
-            cursor.execute("""
-                INSERT INTO users (user_id, email, password_hash, first_name, last_name, role, email_verified)
-                VALUES (%s, %s, %s, %s, %s, %s, %s)
-                RETURNING user_id
-            """, (user_id, email, password_hash, first_name, last_name, role, True))
-            
-            result = cursor.fetchone()
-            cursor.close()
-            
-            print(f"✅ User created: {email}")
-            return result['user_id'] if result else None
-            
-        except psycopg2.IntegrityError:
-            print(f"❌ User with email {email} already exists")
-            return None
-        except psycopg2.Error as e:
-            print(f"❌ Error creating user: {e}")
-            return None
+    def get_active_sessions(self) -> List[Dict]:
+        """Get all active sessions"""
+        with self.get_connection() as conn:
+            with conn.cursor(cursor_factory=RealDictCursor) as cursor:
+                cursor.execute(
+                    "SELECT * FROM sessions WHERE is_active = TRUE ORDER BY started_at DESC"
+                )
+                return [dict(row) for row in cursor.fetchall()]
     
-    def authenticate_user(self, email: str, password: str) -> Optional[Dict]:
-        """Authenticate user and return user info"""
-        try:
-            cursor = self.get_cursor()
-            cursor.execute("""
-                SELECT user_id, email, password_hash, first_name, last_name, role, status
-                FROM users 
-                WHERE email = %s AND status = 'active'
-            """, (email,))
-            
-            user = cursor.fetchone()
-            cursor.close()
-            
-            if not user:
-                print("❌ User not found or inactive")
-                return None
-            
-            # Verify password
-            if bcrypt.checkpw(password.encode('utf-8'), user['password_hash'].encode('utf-8')):
-                # Update last login
-                self.update_last_login(user['user_id'])
+    # PARTICIPANT MANAGEMENT
+    def add_participant(self, session_id: str, user_id: str, role: str = 'user') -> str:
+        """Add a participant to a session"""
+        with self.get_connection() as conn:
+            with conn.cursor() as cursor:
+                cursor.execute(
+                    """INSERT INTO session_participants (session_id, user_id, role) 
+                       VALUES (%s, %s, %s) RETURNING participant_id""",
+                    (session_id, user_id, role)
+                )
+                participant_id = cursor.fetchone()[0]
+                conn.commit()
+                return str(participant_id)
+    
+    def get_session_participants(self, session_id: str) -> List[Dict]:
+        """Get all participants in a session"""
+        with self.get_connection() as conn:
+            with conn.cursor(cursor_factory=RealDictCursor) as cursor:
+                cursor.execute(
+                    """SELECT * FROM session_participants 
+                       WHERE session_id = %s ORDER BY joined_at""",
+                    (session_id,)
+                )
+                return [dict(row) for row in cursor.fetchall()]
+    
+    def remove_participant(self, participant_id: str) -> bool:
+        """Remove a participant from a session"""
+        with self.get_connection() as conn:
+            with conn.cursor() as cursor:
+                cursor.execute(
+                    "DELETE FROM session_participants WHERE participant_id = %s",
+                    (participant_id,)
+                )
+                rows_affected = cursor.rowcount
+                conn.commit()
+                return rows_affected > 0
+    
+    # MESSAGE MANAGEMENT
+    def send_message(self, session_id: str, user_id: str, message_text: str, 
+                    sender_role: str = 'user', metadata: Optional[Dict] = None) -> str:
+        """Send a message in a session"""
+        with self.get_connection() as conn:
+            with conn.cursor() as cursor:
+                cursor.execute(
+                    """INSERT INTO messages (session_id, user_id, sender_role, message_text, metadata) 
+                       VALUES (%s, %s, %s, %s, %s) RETURNING message_id""",
+                    (session_id, user_id, sender_role, message_text, 
+                     json.dumps(metadata) if metadata else None)
+                )
+                message_id = cursor.fetchone()[0]
+                conn.commit()
+                return str(message_id)
+    
+    def get_messages(self, session_id: str, limit: Optional[int] = None, 
+                    offset: int = 0) -> List[Dict]:
+        """Get messages from a session with optional pagination"""
+        with self.get_connection() as conn:
+            with conn.cursor(cursor_factory=RealDictCursor) as cursor:
+                query = """SELECT * FROM messages 
+                          WHERE session_id = %s 
+                          ORDER BY created_at ASC"""
+                params = [session_id]
                 
-                # Return user info without password hash
-                user_dict = dict(user)
-                del user_dict['password_hash']
-                print(f"✅ User authenticated: {email}")
-                return user_dict
-            else:
-                print("❌ Invalid password")
-                return None
+                if limit:
+                    query += " LIMIT %s OFFSET %s"
+                    params.extend([limit, offset])
                 
-        except psycopg2.Error as e:
-            print(f"❌ Error authenticating user: {e}")
-            return None
+                cursor.execute(query, params)
+                return [dict(row) for row in cursor.fetchall()]
     
-    def update_last_login(self, user_id: str):
-        """Update user's last login timestamp"""
-        try:
-            cursor = self.get_cursor()
-            cursor.execute("""
-                UPDATE users 
-                SET last_login = NOW() 
-                WHERE user_id = %s
-            """, (user_id,))
-            cursor.close()
-        except psycopg2.Error as e:
-            print(f"❌ Error updating last login: {e}")
+    def get_message(self, message_id: str) -> Optional[Dict]:
+        """Get a specific message by ID"""
+        with self.get_connection() as conn:
+            with conn.cursor(cursor_factory=RealDictCursor) as cursor:
+                cursor.execute(
+                    "SELECT * FROM messages WHERE message_id = %s",
+                    (message_id,)
+                )
+                result = cursor.fetchone()
+                return dict(result) if result else None
     
-    def get_user_by_id(self, user_id: str) -> Optional[Dict]:
-        """Get user information by user_id"""
-        try:
-            cursor = self.get_cursor()
-            cursor.execute("""
-                SELECT user_id, email, first_name, last_name, role, status, created_at, last_login
-                FROM users 
-                WHERE user_id = %s
-            """, (user_id,))
-            
-            user = cursor.fetchone()
-            cursor.close()
-            
-            return dict(user) if user else None
-            
-        except psycopg2.Error as e:
-            print(f"❌ Error getting user: {e}")
-            return None
+    def delete_message(self, message_id: str) -> bool:
+        """Delete a message"""
+        with self.get_connection() as conn:
+            with conn.cursor() as cursor:
+                cursor.execute(
+                    "DELETE FROM messages WHERE message_id = %s",
+                    (message_id,)
+                )
+                rows_affected = cursor.rowcount
+                conn.commit()
+                return rows_affected > 0
     
-    # =========================
-    # PROJECT MANAGEMENT
-    # =========================
+    def get_messages_by_user(self, user_id: str, session_id: Optional[str] = None) -> List[Dict]:
+        """Get all messages from a specific user, optionally filtered by session"""
+        with self.get_connection() as conn:
+            with conn.cursor(cursor_factory=RealDictCursor) as cursor:
+                if session_id:
+                    cursor.execute(
+                        """SELECT * FROM messages 
+                           WHERE user_id = %s AND session_id = %s 
+                           ORDER BY created_at ASC""",
+                        (user_id, session_id)
+                    )
+                else:
+                    cursor.execute(
+                        """SELECT * FROM messages 
+                           WHERE user_id = %s 
+                           ORDER BY created_at ASC""",
+                        (user_id,)
+                    )
+                return [dict(row) for row in cursor.fetchall()]
     
-    def create_project(self, name: str, description: str, created_by_user_id: str, 
-                      is_private: bool = False) -> Optional[str]:
-        """Create a new project"""
-        try:
-            project_id = str(uuid.uuid4())
-            
-            cursor = self.get_cursor()
-            cursor.execute("""
-                INSERT INTO projects (project_id, name, description, created_by_user_id, is_private)
-                VALUES (%s, %s, %s, %s, %s)
-                RETURNING project_id
-            """, (project_id, name, description, created_by_user_id, is_private))
-            
-            result = cursor.fetchone()
-            
-            # Add creator as owner
-            if result:
-                cursor.execute("""
-                    INSERT INTO project_members (project_id, user_id, role)
-                    VALUES (%s, %s, 'owner')
-                """, (result['project_id'], created_by_user_id))
-            
-            cursor.close()
-            
-            print(f"✅ Project created: {name}")
-            return result['project_id'] if result else None
-            
-        except psycopg2.Error as e:
-            print(f"❌ Error creating project: {e}")
-            return None
+    # CONVERSATION METADATA MANAGEMENT
+    def update_conversation_summary(self, session_id: str, summary: str, 
+                                   tags: Optional[List[str]] = None) -> bool:
+        """Update or create conversation metadata"""
+        with self.get_connection() as conn:
+            with conn.cursor() as cursor:
+                cursor.execute(
+                    """INSERT INTO conversation_metadata (session_id, summary, tags) 
+                       VALUES (%s, %s, %s)
+                       ON CONFLICT (session_id) 
+                       DO UPDATE SET 
+                           summary = EXCLUDED.summary,
+                           tags = EXCLUDED.tags,
+                           last_updated = NOW()""",
+                    (session_id, summary, tags)
+                )
+                conn.commit()
+                return True
     
-    def get_user_projects(self, user_id: str) -> List[Dict]:
-        """Get all projects for a user"""
-        try:
-            cursor = self.get_cursor()
-            cursor.execute("""
-                SELECT p.project_id, p.name, p.description, p.is_private, p.created_at,
-                       pm.role as member_role,
-                       u.first_name || ' ' || u.last_name as created_by_name
-                FROM projects p
-                JOIN project_members pm ON p.project_id = pm.project_id
-                LEFT JOIN users u ON p.created_by_user_id = u.user_id
-                WHERE pm.user_id = %s
-                ORDER BY p.created_at DESC
-            """, (user_id,))
-            
-            projects = cursor.fetchall()
-            cursor.close()
-            
-            return [dict(project) for project in projects]
-            
-        except psycopg2.Error as e:
-            print(f"❌ Error getting user projects: {e}")
-            return []
+    def get_conversation_metadata(self, session_id: str) -> Optional[Dict]:
+        """Get conversation metadata"""
+        with self.get_connection() as conn:
+            with conn.cursor(cursor_factory=RealDictCursor) as cursor:
+                cursor.execute(
+                    "SELECT * FROM conversation_metadata WHERE session_id = %s",
+                    (session_id,)
+                )
+                result = cursor.fetchone()
+                return dict(result) if result else None
     
-    # =========================
-    # CHAT MANAGEMENT
-    # =========================
+    def search_conversations_by_tags(self, tags: List[str]) -> List[Dict]:
+        """Search conversations by tags"""
+        with self.get_connection() as conn:
+            with conn.cursor(cursor_factory=RealDictCursor) as cursor:
+                cursor.execute(
+                    """SELECT cm.*, s.started_at, s.ended_at, s.is_active
+                       FROM conversation_metadata cm
+                       JOIN sessions s ON cm.session_id = s.session_id
+                       WHERE cm.tags && %s
+                       ORDER BY cm.last_updated DESC""",
+                    (tags,)
+                )
+                return [dict(row) for row in cursor.fetchall()]
     
-    def create_chat_session(self, user_id: str, project_id: str = None, 
-                           title: str = None, model_id: int = 1) -> Optional[str]:
-        """Create a new chat session"""
-        try:
-            session_id = str(uuid.uuid4())
-            
-            cursor = self.get_cursor()
-            cursor.execute("""
-                INSERT INTO chat_sessions (session_id, user_id, project_id, title, model_id)
-                VALUES (%s, %s, %s, %s, %s)
-                RETURNING session_id
-            """, (session_id, user_id, project_id, title, model_id))
-            
-            result = cursor.fetchone()
-            cursor.close()
-            
-            print(f"✅ Chat session created: {session_id}")
-            return result['session_id'] if result else None
-            
-        except psycopg2.Error as e:
-            print(f"❌ Error creating chat session: {e}")
-            return None
+    # UTILITY FUNCTIONS
+    def get_session_stats(self, session_id: str) -> Dict:
+        """Get statistics for a session"""
+        with self.get_connection() as conn:
+            with conn.cursor(cursor_factory=RealDictCursor) as cursor:
+                cursor.execute(
+                    """SELECT 
+                           COUNT(DISTINCT user_id) as unique_users,
+                           COUNT(*) as total_messages,
+                           MIN(created_at) as first_message,
+                           MAX(created_at) as last_message
+                       FROM messages 
+                       WHERE session_id = %s""",
+                    (session_id,)
+                )
+                return dict(cursor.fetchone())
     
-    def add_chat_message(self, session_id: str, role: str, content: str, 
-                        metadata: Dict = None) -> Optional[str]:
-        """Add a message to chat session"""
-        try:
-            message_id = str(uuid.uuid4())
-            
-            cursor = self.get_cursor()
-            cursor.execute("""
-                INSERT INTO chat_messages (message_id, session_id, role, content, metadata)
-                VALUES (%s, %s, %s, %s, %s)
-                RETURNING message_id
-            """, (message_id, session_id, role, content, json.dumps(metadata) if metadata else None))
-            
-            result = cursor.fetchone()
-            cursor.close()
-            
-            return result['message_id'] if result else None
-            
-        except psycopg2.Error as e:
-            print(f"❌ Error adding chat message: {e}")
-            return None
-    
-    def get_chat_messages(self, session_id: str, limit: int = 50) -> List[Dict]:
-        """Get chat messages for a session"""
-        try:
-            cursor = self.get_cursor()
-            cursor.execute("""
-                SELECT message_id, role, content, metadata, created_at
-                FROM chat_messages 
-                WHERE session_id = %s
-                ORDER BY created_at ASC
-                LIMIT %s
-            """, (session_id, limit))
-            
-            messages = cursor.fetchall()
-            cursor.close()
-            
-            return [dict(message) for message in messages]
-            
-        except psycopg2.Error as e:
-            print(f"❌ Error getting chat messages: {e}")
-            return []
-    
-    def get_user_chat_sessions(self, user_id: str, limit: int = 20) -> List[Dict]:
-        """Get user's chat sessions"""
-        try:
-            cursor = self.get_cursor()
-            cursor.execute("""
-                SELECT cs.session_id, cs.title, cs.status, cs.created_at, cs.updated_at,
-                       p.name as project_name,
-                       COUNT(cm.message_id) as message_count
-                FROM chat_sessions cs
-                LEFT JOIN projects p ON cs.project_id = p.project_id
-                LEFT JOIN chat_messages cm ON cs.session_id = cm.session_id
-                WHERE cs.user_id = %s AND cs.status = 'active'
-                GROUP BY cs.session_id, cs.title, cs.status, cs.created_at, cs.updated_at, p.name
-                ORDER BY cs.updated_at DESC
-                LIMIT %s
-            """, (user_id, limit))
-            
-            sessions = cursor.fetchall()
-            cursor.close()
-            
-            return [dict(session) for session in sessions]
-            
-        except psycopg2.Error as e:
-            print(f"❌ Error getting chat sessions: {e}")
-            return []
-    
-    # =========================
-    # AI MODELS
-    # =========================
-    
-    def get_available_models(self) -> List[Dict]:
-        """Get all active AI models"""
-        try:
-            cursor = self.get_cursor()
-            cursor.execute("""
-                SELECT model_id, name, version, description, provider, model_type
-                FROM ai_models 
-                WHERE is_active = TRUE
-                ORDER BY name
-            """)
-            
-            models = cursor.fetchall()
-            cursor.close()
-            
-            return [dict(model) for model in models]
-            
-        except psycopg2.Error as e:
-            print(f"❌ Error getting AI models: {e}")
-            return []
-    
-    # =========================
-    # ANALYTICS
-    # =========================
-    
-    def log_usage_event(self, user_id: str, event_type: str, event_data: Dict = None,
-                       session_id: str = None, project_id: str = None, 
-                       ip_address: str = None, user_agent: str = None):
-        """Log a usage analytics event"""
-        try:
-            cursor = self.get_cursor()
-            cursor.execute("""
-                INSERT INTO usage_analytics 
-                (user_id, event_type, event_data, session_id, project_id, ip_address, user_agent)
-                VALUES (%s, %s, %s, %s, %s, %s, %s)
-            """, (user_id, event_type, json.dumps(event_data) if event_data else None,
-                  session_id, project_id, ip_address, user_agent))
-            
-            cursor.close()
-            
-        except psycopg2.Error as e:
-            print(f"❌ Error logging usage event: {e}")
-    
-    # =========================
-    # UTILITY METHODS
-    # =========================
-    
-    def test_connection(self) -> bool:
-        """Test database connection"""
-        try:
-            cursor = self.get_cursor()
-            cursor.execute("SELECT 1")
-            result = cursor.fetchone()
-            cursor.close()
-            return result is not None
-        except psycopg2.Error as e:
-            print(f"❌ Connection test failed: {e}")
-            return False
-    
-    def get_table_info(self) -> List[Dict]:
-        """Get information about all tables"""
-        try:
-            cursor = self.get_cursor()
-            cursor.execute("""
-                SELECT table_name, 
-                       (SELECT count(*) FROM information_schema.columns 
-                        WHERE table_name = t.table_name) as column_count
-                FROM information_schema.tables t
-                WHERE table_schema = 'public'
-                ORDER BY table_name
-            """)
-            
-            tables = cursor.fetchall()
-            cursor.close()
-            
-            return [dict(table) for table in tables]
-            
-        except psycopg2.Error as e:
-            print(f"❌ Error getting table info: {e}")
-            return []
+    def get_user_sessions(self, user_id: str) -> List[Dict]:
+        """Get all sessions a user has participated in"""
+        with self.get_connection() as conn:
+            with conn.cursor(cursor_factory=RealDictCursor) as cursor:
+                cursor.execute(
+                    """SELECT DISTINCT s.*, sp.role, sp.joined_at
+                       FROM sessions s
+                       JOIN session_participants sp ON s.session_id = sp.session_id
+                       WHERE sp.user_id = %s
+                       ORDER BY s.started_at DESC""",
+                    (user_id,)
+                )
+                return [dict(row) for row in cursor.fetchall()]
+
+# Example usage and helper functions
