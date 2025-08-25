@@ -1,5 +1,5 @@
 from sqlalchemy.orm import Session
-from chat_backend.models.user import User
+from app.db.postgres_manager.models.user import User
 
 class UserManager:
     @staticmethod

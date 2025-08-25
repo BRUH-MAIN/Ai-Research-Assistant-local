@@ -1,6 +1,6 @@
 from sqlalchemy.orm import Session
-from chat_backend.models.message import Message
-from chat_backend.redis_queue import RedisQueue
+from app.db.postgres_manager.models.message import Message
+from app.db.postgres_manager.redis_queue import RedisQueue
 
 class MessageManager:
     @staticmethod
@@ -42,9 +42,8 @@ class MessageManager:
     def flush_from_redis(db: Session):
         """
         Fetch all sessions and their messages from Redis and insert into Postgres.
-        Uses the provided RedisClient for connection and format.
+        Uses the provided RedisQueue for connection and format.
         """
-        from chat_backend.redis_queue import RedisQueue
         redis_queue = RedisQueue()
         session_ids = redis_queue.get_all_sessions()
         inserted = []

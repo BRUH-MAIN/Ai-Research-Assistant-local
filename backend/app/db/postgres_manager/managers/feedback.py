@@ -1,5 +1,5 @@
 from sqlalchemy.orm import Session
-from chat_backend.models.feedback import Feedback
+from app.db.postgres_manager.models.feedback import Feedback
 
 class FeedbackManager:
     @staticmethod

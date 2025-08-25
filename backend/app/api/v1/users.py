@@ -6,28 +6,31 @@ from sqlalchemy.orm import Session
 from app.db.postgres_manager.db import get_db
 from app.db.postgres_manager.managers.users import UserManager
 from app.db.postgres_manager.models.user import User
+from app.db.postgres_manager.models.user_schema import UserSchema
 from typing import List
 
 router = APIRouter()
 
-@router.get("/", response_model=List[User])
+@router.get("/", response_model=List[UserSchema])
 def get_users(db: Session = Depends(get_db)):
-    return db.query(User).all()
+    users = db.query(User).all()
+    return [UserSchema.from_orm(user) for user in users]
 
-@router.get("/{user_id}", response_model=User)
+@router.get("/{user_id}", response_model=UserSchema)
 def get_user(user_id: int, db: Session = Depends(get_db)):
     user = UserManager.get_user_by_id(db, user_id)
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
-    return user
+    return UserSchema.from_orm(user)
 
-@router.post("/", response_model=User)
+@router.post("/", response_model=UserSchema)
 def create_user(email: str, password_hash: str, first_name: str = None, last_name: str = None, role: str = None, db: Session = Depends(get_db)):
-    return UserManager.create_user(db, email, password_hash, first_name, last_name, role)
+    user = UserManager.create_user(db, email, password_hash, first_name, last_name, role)
+    return UserSchema.from_orm(user)
 
-@router.delete("/{user_id}", response_model=User)
+@router.delete("/{user_id}", response_model=UserSchema)
 def delete_user(user_id: int, db: Session = Depends(get_db)):
     user = UserManager.delete_user(db, user_id)
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
-    return user
+    return UserSchema.from_orm(user)

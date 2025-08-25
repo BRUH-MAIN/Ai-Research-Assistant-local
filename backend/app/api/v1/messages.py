@@ -6,28 +6,31 @@ from sqlalchemy.orm import Session
 from app.db.postgres_manager.db import get_db
 from app.db.postgres_manager.managers.messages import MessageManager
 from app.db.postgres_manager.models.message import Message
+from app.db.postgres_manager.models.message_schema import MessageSchema
 from typing import List
 
 router = APIRouter()
 
-@router.get("/", response_model=List[Message])
+@router.get("/", response_model=List[MessageSchema])
 def get_messages(db: Session = Depends(get_db)):
-    return db.query(Message).all()
+    messages = db.query(Message).all()
+    return [MessageSchema.from_orm(message) for message in messages]
 
-@router.get("/{message_id}", response_model=Message)
+@router.get("/{message_id}", response_model=MessageSchema)
 def get_message(message_id: int, db: Session = Depends(get_db)):
     message = MessageManager.get_message_by_id(db, message_id)
     if not message:
         raise HTTPException(status_code=404, detail="Message not found")
-    return message
+    return MessageSchema.from_orm(message)
 
-@router.post("/", response_model=Message)
+@router.post("/", response_model=MessageSchema)
 def create_message(session_id: int, sender_id: int, content: str, db: Session = Depends(get_db)):
-    return MessageManager.create_message(db, session_id, sender_id, content)
+    message = MessageManager.create_message(db, session_id, sender_id, content)
+    return MessageSchema.from_orm(message)
 
-@router.delete("/{message_id}", response_model=Message)
+@router.delete("/{message_id}", response_model=MessageSchema)
 def delete_message(message_id: int, db: Session = Depends(get_db)):
     message = MessageManager.delete_message(db, message_id)
     if not message:
         raise HTTPException(status_code=404, detail="Message not found")
-    return message
+    return MessageSchema.from_orm(message)

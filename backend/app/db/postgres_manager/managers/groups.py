@@ -1,5 +1,5 @@
 from sqlalchemy.orm import Session
-from chat_backend.models.group import Group
+from app.db.postgres_manager.models.group import Group
 
 class GroupManager:
     @staticmethod
