@@ -1,4 +1,3 @@
--- Active: 1756116113047@@127.0.0.1@5432@project
 -- PostgreSQL schema with DROP IF EXISTS and indexes
 
 DROP TABLE IF EXISTS feedback CASCADE;
@@ -134,3 +133,34 @@ CREATE TABLE feedback (
 );
 CREATE INDEX idx_feedback_session_id ON feedback(session_id);
 CREATE INDEX idx_feedback_given_by ON feedback(given_by);
+
+-- Dummy users
+INSERT INTO users (email, password_hash, first_name, last_name, role) VALUES
+('dummyuser@example.com', 'dummyhash', 'Dummy', 'User', 'user'),
+('dummyai@example.com', 'dummyhash', 'Dummy', 'AI', 'ai');
+
+-- Dummy group
+INSERT INTO groups (name, created_by) VALUES
+('Dummy Group', 1);
+
+-- Dummy group participant
+INSERT INTO group_participants (group_id, user_id, role) VALUES
+(1, 1, 'member'),
+(1, 2, 'ai');
+
+-- Dummy session
+INSERT INTO sessions (group_id, created_by, topic, started_at) VALUES
+(1, 1, 'Dummy Session', NOW());
+
+-- Dummy session participants
+INSERT INTO session_participants (session_id, user_id) VALUES
+(1, 1),
+(1, 2);
+
+-- Dummy message from user
+INSERT INTO messages (session_id, sender_id, content) VALUES
+(1, 1, 'Hello, this is a test message');
+
+-- Dummy message from AI
+INSERT INTO messages (session_id, sender_id, content) VALUES
+(1, 2, 'Hello, I am the AI assistant');

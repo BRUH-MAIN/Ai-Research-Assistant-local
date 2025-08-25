@@ -96,9 +96,9 @@ class RedisClient:
                 success = self.store_session(session_id, session)
                 if success:
                     print(f"💬 Added message to session: {session_id}")
-                    # Publish notification for sync service
+                    # Publish notification for sync service (send session_id, not message data)
                     try:
-                        self.redis_client.publish(f"session_updated:{session_id}", json.dumps(message))
+                        self.redis_client.publish(f"session_updated:{session_id}", session_id)
                     except Exception as e:
                         print(f"⚠️ Failed to publish session update notification: {e}")
                 return success

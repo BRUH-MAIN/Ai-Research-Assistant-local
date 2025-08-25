@@ -1,0 +1,28 @@
+FROM python:3.12-slim-trixie
+
+# Install system deps
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    curl gcc g++ make ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+# Install pip-tools for pyproject.toml support
+RUN pip install --no-cache-dir pip-tools
+
+# Copy dependency definitions
+COPY backend/pyproject.toml backend/
+
+# Compile pyproject.toml → requirements.txt
+RUN pip-compile --resolver=backtracking pyproject.toml -o requirements.txt
+
+# Install deps
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copy backend source code
+COPY backend .
+
+EXPOSE 8000
+
+# Run FastAPI with uvicorn
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]

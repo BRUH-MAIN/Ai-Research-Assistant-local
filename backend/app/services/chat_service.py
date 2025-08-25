@@ -21,7 +21,10 @@ class ChatService:
             "session_id": session_id,
             "messages": [],
             "created_at": datetime.now().isoformat(),
-            "updated_at": datetime.now().isoformat()
+            "updated_at": datetime.now().isoformat(),
+            "group_id": 1,  # Default group ID for PostgreSQL compatibility
+            "created_by": 1,  # Default user ID for PostgreSQL compatibility
+            "topic": "Chat Session"  # Default topic
         }
         
         success = redis_client.store_session(session_id, session_data)
@@ -43,6 +46,19 @@ class ChatService:
         return redis_client.get_session_info(session_id)
     
     @staticmethod
+    def _get_sender_id(sender: str) -> int:
+        """Map sender type to user ID for PostgreSQL compatibility"""
+        # Map sender types to user IDs
+        # 'user' -> user_id = 1 (default human user)
+        # 'ai' -> user_id = 2 (AI assistant)
+        if sender == "user":
+            return 1
+        elif sender == "ai":
+            return 2
+        else:
+            return 1  # Default to user
+    
+    @staticmethod
     async def send_message(session_id: str, request: ChatRequest) -> Optional[ChatResponse]:
         """Send a message and get AI response"""
         session = redis_client.get_session(session_id)
@@ -57,8 +73,12 @@ class ChatService:
             timestamp=request.timestamp
         )
         
+        # Convert message to storage format with sender_id for PostgreSQL compatibility
+        user_message_data = user_message.dict()
+        user_message_data['sender_id'] = ChatService._get_sender_id(user_message.sender)
+        
         # Store user message
-        success = redis_client.add_message_to_session(session_id, user_message.dict())
+        success = redis_client.add_message_to_session(session_id, user_message_data)
         if not success:
             print(f"⚠️ Warning: Failed to store user message for session {session_id}")
         
@@ -76,8 +96,12 @@ class ChatService:
             timestamp=datetime.now()
         )
         
+        # Convert AI message to storage format with sender_id
+        ai_message_data = ai_message.dict()
+        ai_message_data['sender_id'] = ChatService._get_sender_id(ai_message.sender)
+        
         # Store AI message
-        success = redis_client.add_message_to_session(session_id, ai_message.dict())
+        success = redis_client.add_message_to_session(session_id, ai_message_data)
         if not success:
             print(f"⚠️ Warning: Failed to store AI message for session {session_id}")
         
