@@ -57,7 +57,7 @@ export default function SidebarDemo() {
             <>
               <Logo />
             </>
-            <div className="mt-2 flex flex-col gap-0 ml-0">
+            <div className=" flex flex-col gap-0 ml-0">
               {links.map((link, idx) => (
                 <SidebarLink key={idx} link={link} />
                 
@@ -89,19 +89,26 @@ export default function SidebarDemo() {
 }
 export const Logo = () => {
   return (
-    <a
-      href="#"
-      className="relative z-20 flex items-center space-x-2 py-2 px-4 border-b-2 border-white text-sm font-normal text-black text-center"
-    >
-      <OllamaIcon className="h-6 w-6 shrink-0 text-white" />
-      <motion.span
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        className="font-medium whitespace-pre text-black dark:text-white"
-      >
-   
-      </motion.span>
-    </a>
+    // <a
+    //   href="#"
+    //   className="relative z-20 flex items-center space-x-2 py-2 px-4 border-b-2 border-white text-sm font-normal text-black text-center hover:px-2"
+    // >
+    //   <OllamaIcon className="h-6 w-6 shrink-0 text-white" />
+    //   <motion.span
+    //     initial={{ opacity: 0 }}
+    //     animate={{ opacity: 1 }}
+    //     className="font-medium whitespace-pre text-black dark:text-white"
+    //   >
+    //     <p className="ml-2">Research Assistant</p>
+    //   </motion.span>
+    // </a>
+    <SidebarLink
+      link={{
+        label: "Research Assistant",
+        href: "#",
+        icon: <OllamaIcon className="h-6 w-6 shrink-0 text-white" />,
+      }}
+    />
   );
 };
 export const LogoIcon = () => {

@@ -61,6 +61,10 @@ class RedisClient:
                 timedelta(hours=settings.REDIS_SESSION_TTL_HOURS), 
                 json.dumps(session_data, default=str)
             )
+            
+            # Publish notification for sync service
+            self.redis_client.publish(f"session_updated:{session_id}", session_id)
+            
             print(f"📝 Stored session: {session_id}")
             return True
         except Exception as e:
@@ -92,6 +96,11 @@ class RedisClient:
                 success = self.store_session(session_id, session)
                 if success:
                     print(f"💬 Added message to session: {session_id}")
+                    # Publish notification for sync service
+                    try:
+                        self.redis_client.publish(f"session_updated:{session_id}", json.dumps(message))
+                    except Exception as e:
+                        print(f"⚠️ Failed to publish session update notification: {e}")
                 return success
             else:
                 print(f"❌ Cannot add message - session not found: {session_id}")

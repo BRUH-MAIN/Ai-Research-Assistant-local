@@ -1,3 +1,4 @@
+-- Active: 1756116113047@@127.0.0.1@5432@project
 -- PostgreSQL schema with DROP IF EXISTS and indexes
 
 DROP TABLE IF EXISTS feedback CASCADE;
