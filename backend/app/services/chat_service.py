@@ -28,8 +28,6 @@ class ChatService:
         }
         
         success = redis_client.store_session(session_id, session_data)
-        if not success:
-            print(f"⚠️ Warning: Failed to store session {session_id} in Redis")
         return session_id
     
     @staticmethod

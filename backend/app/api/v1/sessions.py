@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 from app.db.postgres_manager.db import get_db
 from app.db.postgres_manager.managers.sessions import SessionManager
 from app.db.postgres_manager.models.session import Session
-from app.db.postgres_manager.models.session_schema import SessionSchema
+from app.db.postgres_manager.schemas import SessionRead as SessionSchema
 from typing import List
 
 router = APIRouter()

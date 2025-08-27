@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 from app.db.postgres_manager.db import get_db
 from app.db.postgres_manager.managers.feedback import FeedbackManager
 from app.db.postgres_manager.models.feedback import Feedback
-from app.db.postgres_manager.models.feedback_schema import FeedbackSchema
+from app.db.postgres_manager.schemas import FeedbackRead as FeedbackSchema
 from typing import List
 
 router = APIRouter()

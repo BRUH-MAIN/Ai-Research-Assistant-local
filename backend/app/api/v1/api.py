@@ -3,7 +3,6 @@ Main API router that combines all endpoint routers
 """
 from fastapi import APIRouter
 
-
 from app.api.v1 import chat, system, sync
 from app.api.v1 import users, groups, messages, sessions, feedback
 

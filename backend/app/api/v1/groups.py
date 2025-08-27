@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 from app.db.postgres_manager.db import get_db
 from app.db.postgres_manager.managers.groups import GroupManager
 from app.db.postgres_manager.models.group import Group
-from app.db.postgres_manager.models.group_schema import GroupSchema
+from app.db.postgres_manager.schemas import GroupRead as GroupSchema
 from typing import List
 
 router = APIRouter()

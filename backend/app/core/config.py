@@ -29,15 +29,15 @@ class Settings(BaseSettings):
     ]
     
     # Groq API
-    GROQ_API_KEY: str = os.getenv("GROQ_API_KEY")
+    GROQ_API_KEY: str = os.getenv("GROQ_API_KEY", "")
     GROQ_MODEL_NAME: str = "llama-3.1-8b-instant"
     
     # Redis Configuration
-    REDIS_HOST: str = os.getenv("REDIS_HOST")
-    REDIS_PORT: int = int(os.getenv("REDIS_PORT"))
-    REDIS_USERNAME: str = os.getenv("REDIS_USERNAME")
-    REDIS_PASSWORD: str = os.getenv("REDIS_PASSWORD")
-    REDIS_SESSION_TTL_HOURS: int = int(os.getenv("REDIS_SESSION_TTL_HOURS"))
+    REDIS_HOST: str = os.getenv("REDIS_HOST", "localhost")
+    REDIS_PORT: int = int(os.getenv("REDIS_PORT", "6379"))
+    REDIS_USERNAME: str = os.getenv("REDIS_USERNAME", "default")
+    REDIS_PASSWORD: str = os.getenv("REDIS_PASSWORD", "")
+    REDIS_SESSION_TTL_HOURS: int = int(os.getenv("REDIS_SESSION_TTL_HOURS", "24"))
 
     # Chat settings
     MAX_CONVERSATION_HISTORY: int = 10

@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 from app.db.postgres_manager.db import get_db
 from app.db.postgres_manager.managers.messages import MessageManager
 from app.db.postgres_manager.models.message import Message
-from app.db.postgres_manager.models.message_schema import MessageSchema
+from app.db.postgres_manager.schemas import MessageRead as MessageSchema
 from typing import List
 
 router = APIRouter()

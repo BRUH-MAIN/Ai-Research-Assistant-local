@@ -2,7 +2,6 @@
 System and debug endpoints router
 """
 from fastapi import APIRouter
-from typing import List
 
 from app.models.responses import HealthResponse, StatusResponse
 from app.services.ai_service import ai_service

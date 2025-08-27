@@ -19,11 +19,8 @@ class AIService:
                     groq_api_key=settings.GROQ_API_KEY,
                     model_name=settings.GROQ_MODEL_NAME
                 )
-                print("✅ Groq LLM initialized successfully")
             except Exception as e:
                 print(f"❌ Failed to initialize Groq LLM: {e}")
-        else:
-            print("⚠️ Warning: GROQ_API_KEY not found in environment variables")
     
     def is_configured(self) -> bool:
         """Check if AI service is properly configured"""
@@ -71,14 +68,10 @@ class AIService:
             response = self.llm.invoke(full_prompt)
             response_content = response.content if hasattr(response, 'content') else str(response)
             
-            print(f"User input: {user_input}")
-            print(f"Groq response: {response_content}")
-            
             return response_content
             
         except Exception as e:
             error_msg = f"Sorry, I encountered an error: {str(e)}"
-            print(f"Error generating AI response: {error_msg}")
             return error_msg
     
     async def generate_simple_response(self, prompt: str) -> str:
@@ -102,13 +95,9 @@ class AIService:
             response = self.llm.invoke(prompt)
             response_content = response.content if hasattr(response, 'content') else str(response)
             
-            print(f"Legacy prompt: {prompt}")
-            print(f"Groq response: {response_content}")
-            
             return response_content
             
         except Exception as e:
-            print(f"Error processing legacy prompt: {str(e)}")
             raise
 
 
