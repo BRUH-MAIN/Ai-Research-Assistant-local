@@ -3,8 +3,8 @@ from app.db.postgres_manager.models.session import Session as SessionModel
 
 class SessionManager:
     @staticmethod
-    def create_session(db: Session, group_id: int, created_by: int, topic: str = None, started_at=None, ended_at=None):
-        session = SessionModel(group_id=group_id, created_by=created_by, topic=topic, started_at=started_at, ended_at=ended_at)
+    def create_session(db: Session, group_id: int, created_by: int, topic: str = None, status: str = None, started_at=None, ended_at=None):
+        session = SessionModel(group_id=group_id, created_by=created_by, topic=topic, status=status, started_at=started_at, ended_at=ended_at)
         db.add(session)
         db.commit()
         db.refresh(session)

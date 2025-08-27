@@ -27,7 +27,7 @@ class ChatService:
             "topic": "Chat Session"  # Default topic
         }
         
-        success = redis_client.store_session(session_id, session_data)
+        redis_client.store_session(session_id, session_data)
         return session_id
     
     @staticmethod
@@ -39,16 +39,8 @@ class ChatService:
         return None
     
     @staticmethod
-    def get_session_info(session_id: str) -> Optional[Dict[str, Any]]:
-        """Get session information"""
-        return redis_client.get_session_info(session_id)
-    
-    @staticmethod
     def _get_sender_id(sender: str) -> int:
         """Map sender type to user ID for PostgreSQL compatibility"""
-        # Map sender types to user IDs
-        # 'user' -> user_id = 1 (default human user)
-        # 'ai' -> user_id = 2 (AI assistant)
         if sender == "user":
             return 1
         elif sender == "ai":
@@ -76,9 +68,7 @@ class ChatService:
         user_message_data['sender_id'] = ChatService._get_sender_id(user_message.sender)
         
         # Store user message
-        success = redis_client.add_message_to_session(session_id, user_message_data)
-        if not success:
-            print(f"⚠️ Warning: Failed to store user message for session {session_id}")
+        redis_client.add_message_to_session(session_id, user_message_data)
         
         # Generate AI response
         ai_response_content = await ai_service.generate_response(
@@ -99,9 +89,7 @@ class ChatService:
         ai_message_data['sender_id'] = ChatService._get_sender_id(ai_message.sender)
         
         # Store AI message
-        success = redis_client.add_message_to_session(session_id, ai_message_data)
-        if not success:
-            print(f"⚠️ Warning: Failed to store AI message for session {session_id}")
+        redis_client.add_message_to_session(session_id, ai_message_data)
         
         return ChatResponse(userMessage=user_message, aiMessage=ai_message)
     

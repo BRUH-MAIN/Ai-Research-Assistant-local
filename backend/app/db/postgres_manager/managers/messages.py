@@ -1,11 +1,20 @@
 from sqlalchemy.orm import Session
+from datetime import datetime
 from app.db.postgres_manager.models.message import Message
 from app.db.postgres_manager.redis_queue import RedisQueue
 
 class MessageManager:
     @staticmethod
-    def create_message(db: Session, session_id: int, sender_id: int, content: str):
-        message = Message(session_id=session_id, sender_id=sender_id, content=content)
+    def create_message(db: Session, session_id: int, sender_id: int, content: str, sent_at: datetime = None):
+        message_data = {
+            'session_id': session_id,
+            'sender_id': sender_id,
+            'content': content
+        }
+        if sent_at is not None:
+            message_data['sent_at'] = sent_at
+        
+        message = Message(**message_data)
         db.add(message)
         db.commit()
         db.refresh(message)
@@ -55,6 +64,25 @@ class MessageManager:
             for msg in messages:
                 content = msg.get('content') if isinstance(msg, dict) else str(msg)
                 sender_id = msg.get('sender_id') if isinstance(msg, dict) else None
+                timestamp = msg.get('timestamp') if isinstance(msg, dict) else None
+                
                 if content and sender_id:
-                    inserted.append(MessageManager.create_message(db, session_id=session_id, sender_id=sender_id, content=content))
+                    # Parse timestamp if it exists
+                    sent_at = None
+                    if timestamp:
+                        try:
+                            if isinstance(timestamp, str):
+                                sent_at = datetime.fromisoformat(timestamp.replace('Z', '+00:00'))
+                            elif isinstance(timestamp, datetime):
+                                sent_at = timestamp
+                        except Exception:
+                            pass  # Use default timestamp if parsing fails
+                    
+                    inserted.append(MessageManager.create_message(
+                        db, 
+                        session_id=session_id, 
+                        sender_id=sender_id, 
+                        content=content,
+                        sent_at=sent_at
+                    ))
         return inserted

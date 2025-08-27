@@ -11,16 +11,16 @@ class FeedbackManager:
         return feedback
 
     @staticmethod
-    def get_feedback_by_id(db: Session, feedback_id: int):
-        return db.query(Feedback).filter(Feedback.feedback_id == feedback_id).first()
+    def get_feedback_by_session_and_user(db: Session, session_id: int, given_by: int):
+        return db.query(Feedback).filter(Feedback.session_id == session_id, Feedback.given_by == given_by).first()
 
     @staticmethod
     def get_feedback_by_session(db: Session, session_id: int):
         return db.query(Feedback).filter(Feedback.session_id == session_id).all()
 
     @staticmethod
-    def update_feedback(db: Session, feedback_id: int, **kwargs):
-        feedback = db.query(Feedback).filter(Feedback.feedback_id == feedback_id).first()
+    def update_feedback(db: Session, session_id: int, given_by: int, **kwargs):
+        feedback = db.query(Feedback).filter(Feedback.session_id == session_id, Feedback.given_by == given_by).first()
         if not feedback:
             return None
         for key, value in kwargs.items():
@@ -30,8 +30,8 @@ class FeedbackManager:
         return feedback
 
     @staticmethod
-    def delete_feedback(db: Session, feedback_id: int):
-        feedback = db.query(Feedback).filter(Feedback.feedback_id == feedback_id).first()
+    def delete_feedback(db: Session, session_id: int, given_by: int):
+        feedback = db.query(Feedback).filter(Feedback.session_id == session_id, Feedback.given_by == given_by).first()
         if feedback:
             db.delete(feedback)
             db.commit()

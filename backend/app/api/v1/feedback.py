@@ -14,23 +14,23 @@ router = APIRouter()
 @router.get("/", response_model=List[FeedbackSchema])
 def get_feedback(db: Session = Depends(get_db)):
     feedbacks = db.query(Feedback).all()
-    return [FeedbackSchema.from_orm(feedback) for feedback in feedbacks]
+    return [FeedbackSchema.model_validate(feedback) for feedback in feedbacks]
 
-@router.get("/{feedback_id}", response_model=FeedbackSchema)
-def get_feedback_by_id(feedback_id: int, db: Session = Depends(get_db)):
-    feedback = FeedbackManager.get_feedback_by_id(db, feedback_id)
+@router.get("/{session_id}/{given_by}", response_model=FeedbackSchema)
+def get_feedback_by_session_and_user(session_id: int, given_by: int, db: Session = Depends(get_db)):
+    feedback = FeedbackManager.get_feedback_by_session_and_user(db, session_id, given_by)
     if not feedback:
         raise HTTPException(status_code=404, detail="Feedback not found")
-    return FeedbackSchema.from_orm(feedback)
+    return FeedbackSchema.model_validate(feedback)
 
 @router.post("/", response_model=FeedbackSchema)
 def create_feedback(session_id: int, given_by: int, content: str, db: Session = Depends(get_db)):
     feedback = FeedbackManager.create_feedback(db, session_id, given_by, content)
-    return FeedbackSchema.from_orm(feedback)
+    return FeedbackSchema.model_validate(feedback)
 
-@router.delete("/{feedback_id}", response_model=FeedbackSchema)
-def delete_feedback(feedback_id: int, db: Session = Depends(get_db)):
-    feedback = FeedbackManager.delete_feedback(db, feedback_id)
+@router.delete("/{session_id}/{given_by}", response_model=FeedbackSchema)
+def delete_feedback(session_id: int, given_by: int, db: Session = Depends(get_db)):
+    feedback = FeedbackManager.delete_feedback(db, session_id, given_by)
     if not feedback:
         raise HTTPException(status_code=404, detail="Feedback not found")
-    return FeedbackSchema.from_orm(feedback)
+    return FeedbackSchema.model_validate(feedback)
