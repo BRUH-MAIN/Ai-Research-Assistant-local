@@ -3,7 +3,8 @@ Main API router that combines all endpoint routers
 """
 from fastapi import APIRouter
 
-from app.api.v1 import chat, system, sync
+from app.core.config import settings
+from app.api.v1 import chat, system
 from app.api.v1 import users, groups, messages, sessions, feedback
 from app.api.v1 import group_participants, session_participants, papers, paper_tags, session_papers, ai_metadata
 
@@ -12,7 +13,12 @@ api_router = APIRouter()
 # Include routers
 api_router.include_router(system.router, tags=["system"])
 api_router.include_router(chat.router, prefix="/chat", tags=["chat"])
-api_router.include_router(sync.router, prefix="/sync", tags=["sync"])
+
+# Only include sync router if Redis sync is enabled
+if settings.ENABLE_REDIS_SYNC:
+    from app.api.v1 import sync
+    api_router.include_router(sync.router, prefix="/sync", tags=["sync"])
+
 api_router.include_router(users.router, prefix="/users", tags=["users"])
 api_router.include_router(groups.router, prefix="/groups", tags=["groups"])
 api_router.include_router(group_participants.router, prefix="/group-participants", tags=["group-participants"])

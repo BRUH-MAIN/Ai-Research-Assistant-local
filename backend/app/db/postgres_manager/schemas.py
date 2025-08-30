@@ -107,6 +107,22 @@ class PaperRead(PaperBase):
     published_at: Optional[datetime] = None
     model_config = ConfigDict(from_attributes=True)
 
+class PaperWithTags(PaperRead):
+    tags: List[str] = []
+
+class PaperSearchRequest(BaseModel):
+    name: Optional[str] = None
+    tags: Optional[List[str]] = None
+
+class PaperSearchResult(BaseModel):
+    found_in_db: bool
+    papers: List[PaperWithTags]
+    arxiv_results: Optional[List[dict]] = None
+
+class ArxivPaperDownload(BaseModel):
+    arxiv_id: str
+    add_tags: Optional[List[str]] = None
+
 class PaperTagBase(BaseModel):
     paper_id: int
     tag: str

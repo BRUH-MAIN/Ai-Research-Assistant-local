@@ -1,10 +1,16 @@
 import React from 'react'
+import Link from 'next/link'
 
 function page() {
   return (
     <div className="min-h-screen bg-gray-950">
       {/* Top navigation with sign up and login buttons */}
-      <nav className="flex justify-end p-6">
+      <nav className="flex justify-between items-center p-6">
+        <div className="flex space-x-4">
+          <Link href="/papers" className="px-6 py-2 text-white bg-blue-600 hover:bg-blue-700 border-2 border-blue-600 rounded">
+            Paper Search
+          </Link>
+        </div>
         <div className="space-x-4">
           <button className="px-6 py-2 text-white bg-transparent border-2 border-white">
             Sign Up
@@ -24,9 +30,12 @@ function page() {
               Assistant
             </span>
           </h1>
-          <p className="text-xl md:text-2xl text-gray-600 dark:text-gray-300 max-w-2xl mx-auto leading-relaxed">
+          <p className="text-xl md:text-2xl text-gray-600 dark:text-gray-300 max-w-2xl mx-auto leading-relaxed mb-8">
             Unlock the power of intelligent research with AI-driven insights and seamless knowledge discovery
           </p>
+          <Link href="/papers" className="inline-block px-8 py-4 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg text-lg">
+            Start Searching Papers
+          </Link>
         </div>
       </div>
     </div>

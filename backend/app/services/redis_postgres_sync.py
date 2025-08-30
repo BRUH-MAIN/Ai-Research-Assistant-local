@@ -13,6 +13,7 @@ from app.db.postgres_manager.managers.sessions import SessionManager
 from app.db.postgres_manager.managers.messages import MessageManager
 from app.db.postgres_manager.managers.users import UserManager
 from app.db.postgres_manager.managers.groups import GroupManager
+from app.db.postgres_manager.managers.group_participants import GroupParticipantManager
 from app.db.postgres_manager.models.session import Session as SessionModel
 
 logger = logging.getLogger(__name__)
@@ -190,7 +191,7 @@ class RedisPgSyncService:
                         email = f"user_{sender_id}@temp.com"
                         first_name = f"User{sender_id}"
                     
-                    UserManager.create_user(db, email=email, password_hash="temp", first_name=first_name)
+                    UserManager.create_user(db, email=email, first_name=first_name)
                     logger.info(f"Created user {sender_id} in PostgreSQL")
     
     def _ensure_default_users(self, db):
@@ -199,14 +200,41 @@ class RedisPgSyncService:
             # Check if user with ID 1 exists
             user_1 = UserManager.get_user_by_id(db, 1)
             if not user_1:
-                UserManager.create_user(db, email="user@default.com", password_hash="temp", first_name="Default User")
+                UserManager.create_user(db, email="user@default.com", first_name="Default User")
                 logger.info("Created default user (ID: 1) in PostgreSQL")
             
             # Check if user with ID 2 exists
             user_2 = UserManager.get_user_by_id(db, 2)
             if not user_2:
-                UserManager.create_user(db, email="ai@assistant.com", password_hash="temp", first_name="AI Assistant")
+                UserManager.create_user(db, email="ai@assistant.com", first_name="AI Assistant")
                 logger.info("Created AI user (ID: 2) in PostgreSQL")
+                
+            # Ensure default group exists
+            default_group = GroupManager.get_group_by_id(db, 1)
+            if not default_group:
+                # Get the actual user ID (might not be 1 due to IDENTITY column)
+                user_1 = UserManager.get_user_by_email(db, "user@default.com")
+                if user_1:
+                    GroupManager.create_group(db, name="Default Group", created_by=user_1.user_id)
+                    logger.info("Created default group (ID: 1) in PostgreSQL")
+            
+            # Ensure group participants exist
+            default_group = GroupManager.get_group_by_id(db, 1)
+            if default_group:
+                user_1 = UserManager.get_user_by_email(db, "user@default.com")
+                user_2 = UserManager.get_user_by_email(db, "ai@assistant.com")
+                
+                if user_1:
+                    participant_1 = GroupParticipantManager.get_participant_by_group_and_user(db, default_group.group_id, user_1.user_id)
+                    if not participant_1:
+                        GroupParticipantManager.create_group_participant(db, default_group.group_id, user_1.user_id, "admin")
+                        logger.info("Created default user group participant")
+                
+                if user_2:
+                    participant_2 = GroupParticipantManager.get_participant_by_group_and_user(db, default_group.group_id, user_2.user_id)
+                    if not participant_2:
+                        GroupParticipantManager.create_group_participant(db, default_group.group_id, user_2.user_id, "ai")
+                        logger.info("Created AI user group participant")
                 
         except Exception as e:
             logger.error(f"Error ensuring default users: {e}")
@@ -218,10 +246,13 @@ class RedisPgSyncService:
         
         existing_group = GroupManager.get_group_by_id(db, group_id)
         if not existing_group:
-            # Create default group
-            created_by = session_data.get('created_by', 1)
-            GroupManager.create_group(db, name="Default Group", created_by=created_by)
-            logger.info(f"Created group {group_id} in PostgreSQL")
+            # Create default group using the default user
+            user_1 = UserManager.get_user_by_email(db, "user@default.com")
+            if user_1:
+                GroupManager.create_group(db, name="Default Group", created_by=user_1.user_id)
+                logger.info(f"Created group {group_id} in PostgreSQL")
+            else:
+                logger.error("Cannot create group: default user not found")
     
     async def _ensure_session_exists(self, db, session_id: str, session_data: Dict[str, Any]):
         """Ensure session exists in PostgreSQL and return the actual session ID"""
@@ -243,8 +274,24 @@ class RedisPgSyncService:
             else:
                 # Create new session
                 group_id = session_data.get('group_id', 1)
-                created_by = session_data.get('created_by', 1)
+                created_by_user_id = session_data.get('created_by', 1)
                 topic = session_data.get('topic', 'Chat Session')
+                
+                # Find the group participant ID for this user in this group
+                # Default to user 1 if not found
+                user_1 = UserManager.get_user_by_email(db, "user@default.com")
+                if user_1:
+                    participant = GroupParticipantManager.get_participant_by_group_and_user(db, group_id, user_1.user_id)
+                    if participant:
+                        created_by = participant.group_participant_id
+                    else:
+                        # Create participant if it doesn't exist
+                        participant = GroupParticipantManager.create_group_participant(db, group_id, user_1.user_id, "user")
+                        created_by = participant.group_participant_id
+                        logger.info(f"Created group participant for user {user_1.user_id} in group {group_id}")
+                else:
+                    logger.error("Default user not found, cannot create session")
+                    return None
                 
                 # Add Redis identifier to topic for future lookups
                 topic_with_id = f"{topic} (Redis:{session_id})"

@@ -34,30 +34,26 @@ CREATE TABLE groups (
 CREATE INDEX idx_groups_created_by ON groups(created_by);
 
 CREATE TABLE group_participants (
-    --group_participant_id SERIAL PRIMARY KEY,
+    group_participant_id SERIAL PRIMARY KEY,
     group_id INT NOT NULL REFERENCES groups(group_id) ON DELETE CASCADE,
     user_id INT NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
     role VARCHAR(50) NOT NULL,
     joined_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    --UNIQUE(group_id, user_id),
-    constraint role_constraint CHECK (role IN ('admin', 'member', 'mentor')) ,
-    PRIMARY KEY (group_id, user_id)
+    UNIQUE(group_id, user_id),
+    constraint role_constraint CHECK (role IN ('admin', 'member', 'mentor'))
 );
 CREATE INDEX idx_group_participants_group_id ON group_participants(group_id);
 CREATE INDEX idx_group_participants_user_id ON group_participants(user_id);
 
 CREATE TABLE sessions (
     session_id SERIAL PRIMARY KEY,
-    group_id INT NOT NULL,
-    created_by INT NOT NULL,
+    group_id INT NOT NULL REFERENCES groups(group_id) ON DELETE CASCADE,
+    created_by INT NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
     topic TEXT,
     status VARCHAR(50),
     started_at TIMESTAMP,
     ended_at TIMESTAMP,
-    CONSTRAINT status_constraint CHECK (status IN ('offline', 'active', 'completed')),
-    FOREIGN KEY (group_id, created_by)
-        REFERENCES group_participants(group_id, user_id)
-        ON DELETE CASCADE
+    CONSTRAINT status_constraint CHECK (status IN ('offline', 'active', 'completed'))
 );
 
 CREATE INDEX idx_sessions_group_id ON sessions(group_id);

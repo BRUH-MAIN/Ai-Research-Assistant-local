@@ -42,6 +42,12 @@ class Settings(BaseSettings):
     # Chat settings
     MAX_CONVERSATION_HISTORY: int = 10
     
+    # Data directory for storing papers
+    DATA_DIR: str = os.getenv("DATA_DIR", "/home/bharath/Documents/DBMS/data")
+    
+    # Redis sync settings
+    ENABLE_REDIS_SYNC: bool = os.getenv("ENABLE_REDIS_SYNC", "false").lower() == "true"
+    
     class Config:
         case_sensitive = True
 

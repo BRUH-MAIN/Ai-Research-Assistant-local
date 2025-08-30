@@ -19,6 +19,9 @@ RUN uv sync --frozen --no-dev
 # Copy backend source code
 COPY backend .
 
+# Create data directory for PDFs
+RUN mkdir -p /app/data
+
 EXPOSE 8000
 
 # Run FastAPI with uvicorn using uv
