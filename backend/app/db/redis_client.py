@@ -34,6 +34,7 @@ class RedisClient:
         """Test Redis connection"""
         try:
             self.redis_client.ping()
+            print("✅ Redis Cloud connection successful!")
             self._connection_tested = True
         except redis.ConnectionError as e:
             print(f"❌ Redis Cloud connection failed: {e}")
@@ -48,6 +49,7 @@ class RedisClient:
         except (redis.ConnectionError, redis.TimeoutError):
             return False
         except Exception as e:
+            print(f"Unexpected Redis error: {e}")
             return False
     
     def store_session(self, session_id: str, session_data: Dict[str, Any]) -> bool:
@@ -63,8 +65,10 @@ class RedisClient:
             # Publish notification for sync service
             self.redis_client.publish(f"session_updated:{session_id}", session_id)
             
+            print(f"📝 Stored session: {session_id}")
             return True
         except Exception as e:
+            print(f"❌ Failed to store session {session_id}: {e}")
             return False
     
     def get_session(self, session_id: str) -> Optional[Dict[str, Any]]:
@@ -73,10 +77,13 @@ class RedisClient:
             key = f"chat:session:{session_id}"
             data = self.redis_client.get(key)
             if data:
+                print(f"📖 Retrieved session: {session_id}")
                 return json.loads(data)
             else:
+                print(f"❌ Session not found: {session_id}")
                 return None
         except Exception as e:
+            print(f"❌ Failed to get session {session_id}: {e}")
             return None
     
     def add_message_to_session(self, session_id: str, message: Dict[str, Any]) -> bool:
@@ -88,15 +95,18 @@ class RedisClient:
                 session['updated_at'] = datetime.now().isoformat()
                 success = self.store_session(session_id, session)
                 if success:
+                    print(f"💬 Added message to session: {session_id}")
                     # Publish notification for sync service (send session_id, not message data)
                     try:
                         self.redis_client.publish(f"session_updated:{session_id}", session_id)
                     except Exception as e:
-                        pass
+                        print(f"⚠️ Failed to publish session update notification: {e}")
                 return success
             else:
+                print(f"❌ Cannot add message - session not found: {session_id}")
                 return False
         except Exception as e:
+            print(f"❌ Failed to add message to session {session_id}: {e}")
             return False
     
     def delete_session(self, session_id: str) -> bool:
@@ -105,10 +115,13 @@ class RedisClient:
             key = f"chat:session:{session_id}"
             result = self.redis_client.delete(key)
             if result:
+                print(f"🗑️ Deleted session: {session_id}")
                 return True
             else:
+                print(f"❌ Session not found for deletion: {session_id}")
                 return False
         except Exception as e:
+            print(f"❌ Failed to delete session {session_id}: {e}")
             return False
     
     def get_all_sessions(self) -> List[str]:
@@ -117,8 +130,10 @@ class RedisClient:
             pattern = "chat:session:*"
             keys = self.redis_client.keys(pattern)
             session_ids = [key.replace("chat:session:", "") for key in keys]
+            print(f"📋 Found {len(session_ids)} active sessions")
             return session_ids
         except Exception as e:
+            print(f"❌ Failed to get sessions: {e}")
             return []
     
     def get_session_info(self, session_id: str) -> Optional[Dict[str, Any]]:
@@ -134,6 +149,7 @@ class RedisClient:
                 }
             return None
         except Exception as e:
+            print(f"❌ Failed to get session info {session_id}: {e}")
             return None
 
 
